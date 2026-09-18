@@ -1,0 +1,39 @@
+interface:
+  display_name: digital twin fidelity auditor
+  short_description: 'Audit the completeness, operational quality, replication fidelity,
+    robustness, and application
+
+    readiness of a personal digital twin, persona agent, perspective agent, role-simulation
+    prompt,
+
+    character skill, user-clone system, or delegated personal agent. Use when the
+    user asks what
+
+    dimensions of a person are replicated or missing, whether modeled traits actually
+    affect runtime,
+
+    whether the system captures the specific individual rather than an archetype,
+    whether it
+
+    generalizes to unseen situations, remains internally and temporally consistent,
+    calibrates
+
+    uncertainty, or has credible evidence of human fidelity. Also use to validate
+    replication
+
+    scorecards, compare twin implementations, design holdout/shadow benchmarks, or
+    judge readiness
+
+    for useful/delegated tasks. Never infer fidelity from prompt richness, biography
+    volume, named
+
+    heuristics, or stylistic similarity alone.'
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

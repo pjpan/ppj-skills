@@ -1,0 +1,36 @@
+interface:
+  display_name: structured technical report
+  short_description: 'Create, restructure, or review professional technical whitepapers,
+    architecture reports,
+
+    research reports, technical strategy/planning documents, and executive-facing
+    technical
+
+    narratives. Use this skill whenever the user asks to write, rewrite, improve,
+    review, organize,
+
+    or finalize a substantial technical report whose quality depends on clear information
+    hierarchy,
+
+    consistent terminology, evidence-backed concepts, architecture-versus-implementation
+    separation,
+
+    independent evaluation, compact presentation, or cumulative revision quality.
+    Also use it when
+
+    a report feels like a collection of correct points but lacks a coherent structure.
+    Do not use
+
+    for lightweight messages, simple factual answers, slide decks, code-only tasks,
+    or ordinary
+
+    document formatting where report architecture and reasoning quality are not central.'
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
