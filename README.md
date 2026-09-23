@@ -37,6 +37,7 @@
 
 - `wechat-cli` 必须调用**底层二进制**（node wrapper 直接调用不输出任何内容），且输出要**先重定向到文件**再解析（管道不生效）。
 - 首次使用需 `sudo wechat-cli init`，并给终端授予 macOS「完全磁盘访问权限」。
+- `init` 报 `task_for_pid failed` 是 macOS **进程内存访问**限制（与磁盘权限无关）：先让 wechat-cli 自动重签名 WeChat，或按 SKILL.md 里的 `codesign` 命令手动重签名，然后完全退出微信、重新打开登录、再 init。
 - 脚本默认路径全部可用环境变量覆盖（`WECHAT_CONTAINER`、`WECHAT_WXID_DIR`、`TGO_ATTACH_HASH`、`TGO_OBSIDIAN`），换机器/换账号无需改代码。
 - 已知限制：`wechat-cli` 对最近几天的消息有同步延迟，补拉近几日数据可能需要隔天重试。
 

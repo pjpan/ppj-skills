@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.3.0
+version: 1.3.1
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -60,6 +60,38 @@ sudo wechat-cli init
 ```
 
 > ⚠️ macOS 用户需要授予终端「完全磁盘访问权限」
+
+### macOS 报错 `task_for_pid failed`
+
+部分 macOS 系统上，**即使用 `sudo` 运行，`init` 仍可能失败并报 `task_for_pid failed`**。这是 macOS 对「进程内存访问」的安全限制，与磁盘权限无关，所以授予完全磁盘访问权限也解决不了。
+
+`wechat-cli` 会自动尝试修复：给 WeChat 重新签名并附加所需 entitlement（**原有 entitlements 会被保留**）。按屏幕提示操作即可：
+
+1. 工具自动重新签名 WeChat
+2. **完全退出**微信（不是最小化，用 `⌘Q` 或右键退出）
+3. 重新打开微信并登录
+4. 再次运行 `sudo wechat-cli init`
+
+如果自动重签名失败，可手动执行（先完全退出微信）：
+
+```bash
+sudo codesign --force --sign - --entitlements /dev/stdin /Applications/WeChat.app <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.get-task-allow</key>
+    <true/>
+</dict>
+</plist>
+EOF
+```
+
+重签名完成后重新打开微信、登录，再执行 `sudo wechat-cli init`。
+
+> 说明：`get-task-allow` 只放开**进程内存读取**，供 `init` 阶段探测数据结构用。本技能的 V2 图片解密走**磁盘派生密钥**路线（见下文），并不依赖该 entitlement——即使 init 暂时不可用，图片解密仍可独立完成。
+>
+> 副作用提醒：重签名会让微信的签名指纹变化，个别系统安全策略（如企业 MDM）可能提示异常；如遇问题可用同一命令重新签名回原状态，或升级/重装微信后重试。
 
 ## 核心命令参考
 
@@ -406,7 +438,7 @@ tags: [#微信 #待办] 或 [#微信 #会议]
 1. **隐私保护**：微信数据仅本地处理，不上传任何数据
 2. **微信运行要求**：执行命令时微信需处于运行状态
 3. **权限要求**：macOS 需授予「完全磁盘访问权限」
-4. **首次使用**：先运行 `sudo wechat-cli init` 初始化
+4. **首次使用**：先运行 `sudo wechat-cli init` 初始化；若报 `task_for_pid failed`，按上文「macOS 报错 `task_for_pid failed`」处理（与磁盘权限无关）
 5. **Obsidian 路径检测**：**必须先检测 Obsidian vault 的实际路径**，不要假设为 `~/Obsidian/`
    - 读取 `~/Library/Application Support/obsidian/obsidian.json`
    - 解析 `vaults` 字段获取实际路径
@@ -420,5 +452,6 @@ tags: [#微信 #待办] 或 [#微信 #会议]
 |---------|---------|
 | "微信未运行" | 启动微信后重试 |
 | "需要初始化" | 运行 `sudo wechat-cli init` |
+| `task_for_pid failed`（init 时） | macOS 进程内存访问限制，与磁盘权限无关；见上文「macOS 报错 `task_for_pid failed`」，重新签名 WeChat 后重启并重试 |
 | "权限被拒绝" | 检查终端是否具有完全磁盘访问权限 |
 | "找不到联系人" | 使用 `wechat-cli sessions` 确认正确的联系人名称 |
