@@ -2,18 +2,56 @@
 
 个人维护的 [Agent Skills](https://code.claude.com/docs/en/skills) 集合。每个 skill 是一个独立的目录，遵循 `SKILL.md` + YAML frontmatter 的通用格式，可被支持该格式的 agent 运行时（Claude Code、ZCode、Codex 等）自动加载或按名调用。
 
-当前包含两个 skill：一个用于审计数字孪生/人格 agent 的复刻保真度，一个用于撰写和评审结构化技术报告。
+当前包含三个 skill：一个用于读取与整理本地微信聊天记录（含 macOS 图片解密），一个用于审计数字孪生/人格 agent 的复刻保真度，一个用于撰写和评审结构化技术报告。
 
 ## 包含的 Skills
 
 | Skill | 解决什么问题 | 典型触发场景 |
 |---|---|---|
+| [`wechat-smart-organizer`](./wechat-smart-organizer/SKILL.md) | 本地微信聊天记录的读取与整理 | “帮我读一下某个群的聊天记录”“把这个群最近一周的讨论总结一下”“从聊天里找出待办/会议/联系人”“解密微信图片并存到 Obsidian” |
 | [`digital-twin-fidelity-auditor`](./digital-twin-fidelity-auditor/SKILL.md) | 数字孪生/人格 agent 的复刻保真度审计 | “这个 twin 复刻了哪些维度、缺了什么”“它学到的是这个人还是一个原型”“结论有多少独立证据支撑” |
 | [`structured-technical-report`](./structured-technical-report/SKILL.md) | 技术报告的结构架构与评审 | 白皮书、架构报告、研究/战略文档的撰写、重构、评审；或“内容都对但读起来不成体系” |
 
 ---
 
-## 1. digital-twin-fidelity-auditor
+## 1. wechat-smart-organizer
+
+把微信聊天记录当作**本地可检索的数据源**来处理，而不是靠截图和手工复制。
+
+核心约束（决定了它的使用方式）：
+
+> macOS 上微信 4.x 的图片是 **V2 加密格式**（`07 08 56 32 08 07` 魔数 + AES + 原始数据 + XOR），无法直接打开；但密钥可以从磁盘缓存**离线派生**——`aes_key = hex(MD5(str(code) + wxid))[:16]`、`xor_key = code & 0xFF`——**全程不需要 sudo、也不需要读进程内存**。
+
+### 能力
+
+| 能力 | 说明 |
+|---|---|
+| 读取聊天记录 | 按会话、时间范围、消息类型（文本/链接/图片）读取；关键词搜索 |
+| 智能信息提取 | 识别任务/待办、截止日期、会议约定、联系人、地址、金额、附件 |
+| 链接 URL 补全 | `[链接]` 卡片消息只输出标题，需通过搜索引擎补全原文 URL，才能在笔记里直接跳转 |
+| Obsidian 存储 | 先检测 vault 真实路径（不假设 `~/Obsidian/`），按类型写入任务/会议/联系人/项目笔记 |
+| 日历事件 | 识别时间表达式并创建提醒；多方会议可转交会议 skill |
+| V2 图片解密 | 批量解密群聊图片/视频到本地目录，附 `decrypt_manifest.json` 清单 |
+
+### 上手要点
+
+- `wechat-cli` 必须调用**底层二进制**（node wrapper 直接调用不输出任何内容），且输出要**先重定向到文件**再解析（管道不生效）。
+- 首次使用需 `sudo wechat-cli init`，并给终端授予 macOS「完全磁盘访问权限」。
+- 脚本默认路径全部可用环境变量覆盖（`WECHAT_CONTAINER`、`WECHAT_WXID_DIR`、`TGO_ATTACH_HASH`、`TGO_OBSIDIAN`），换机器/换账号无需改代码。
+- 已知限制：`wechat-cli` 对最近几天的消息有同步延迟，补拉近几日数据可能需要隔天重试。
+
+### 参考文档
+
+| 文件 | 内容 |
+|---|---|
+| [`references/commands.md`](./wechat-smart-organizer/references/commands.md) | wechat-cli 常用命令速查 |
+| [`scripts/wechat_v2_image_decrypt.py`](./wechat-smart-organizer/scripts/wechat_v2_image_decrypt.py) | V2 图片/视频离线解密（磁盘派生密钥） |
+| [`scripts/extract_key_info.py`](./wechat-smart-organizer/scripts/extract_key_info.py) | 从聊天记录提取任务/时间/联系人等结构化信息 |
+| [`scripts/save_to_obsidian.py`](./wechat-smart-organizer/scripts/save_to_obsidian.py) | 按类型写入 Obsidian 笔记 |
+
+---
+
+## 2. digital-twin-fidelity-auditor
 
 把数字孪生当作一个**复刻系统**来审计，而不是当作一段 persona prompt。
 
@@ -47,7 +85,7 @@
 
 ---
 
-## 2. structured-technical-report
+## 3. structured-technical-report
 
 让报告读起来是**成体系的思想结构**，而不是一堆各自正确的段落。
 
@@ -82,6 +120,16 @@
 
 ```
 .
+├── wechat-smart-organizer/
+│   ├── SKILL.md                      # 主文件：frontmatter + 工作流程
+│   ├── agents/openai.yaml            # 接口元数据（display name、icon、可用产品）
+│   ├── assets/icon.svg               # skill 图标
+│   ├── references/
+│   │   └── commands.md               # wechat-cli 命令速查
+│   └── scripts/
+│       ├── wechat_v2_image_decrypt.py  # V2 图片/视频离线解密
+│       ├── extract_key_info.py         # 关键信息提取
+│       └── save_to_obsidian.py         # 写入 Obsidian
 ├── digital-twin-fidelity-auditor/
 │   ├── SKILL.md                      # 主文件：frontmatter + 审计流程
 │   ├── agents/openai.yaml            # 接口元数据（display name、icon、可用产品）
@@ -107,17 +155,20 @@
 ```bash
 # 个人级安装（以 ~/.agents/skills 为例）
 git clone git@github.com:pjpan/ppj-skills.git
-cp -R ppj-skills/digital-twin-fidelity-auditor ~/.agents/skills/
-cp -R ppj-skills/structured-technical-report   ~/.agents/skills/
+cp -R ppj-skills/wechat-smart-organizer          ~/.agents/skills/
+cp -R ppj-skills/digital-twin-fidelity-auditor   ~/.agents/skills/
+cp -R ppj-skills/structured-technical-report     ~/.agents/skills/
 ```
 
 或直接软链，便于 `git pull` 后生效：
 
 ```bash
-ln -s "$PWD/ppj-skills/digital-twin-fidelity-auditor" ~/.agents/skills/digital-twin-fidelity-auditor
+ln -s "$PWD/ppj-skills/wechat-smart-organizer" ~/.agents/skills/wechat-smart-organizer
 ```
 
-安装后由运行时根据 `SKILL.md` 的 frontmatter `description` 决定是否自动加载，也可以按名显式调用（如 `/digital-twin-fidelity-auditor`）。
+安装后由运行时根据 `SKILL.md` 的 frontmatter `description` 决定是否自动加载，也可以按名显式调用（如 `/wechat-smart-organizer`）。
+
+> `wechat-smart-organizer` 额外依赖本机环境：`wechat-cli`、运行中的微信客户端、macOS 完全磁盘访问权限，以及脚本用的 Python 3。
 
 ### 格式说明
 
@@ -126,7 +177,7 @@ ln -s "$PWD/ppj-skills/digital-twin-fidelity-auditor" ~/.agents/skills/digital-t
 
 ## 设计约定
 
-这两个 skill 共享同一套写作约定：主流程保持精简，只在需要时引导模型读取详细参考文档；概念必须可区分、术语必须一致；论断强度必须匹配证据强度，不把演示效果当作能力证据。
+这些 skill 共享同一套写作约定：主流程保持精简，只在需要时引导模型读取详细参考文档；概念必须可区分、术语必须一致；论断强度必须匹配证据强度，不把演示效果当作能力证据。
 
 ## License
 

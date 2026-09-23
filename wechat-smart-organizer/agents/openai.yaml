@@ -1,0 +1,21 @@
+interface:
+  display_name: wechat smart organizer
+  short_description: 'Read, extract, and organize WeChat chat history locally on macOS.
+    Use when the user asks to read WeChat messages, summarize a WeChat group, export
+    or search chat records, pull action items, deadlines, meetings, or contacts out
+    of conversations, archive chat attachments and images, auto-complete link-card
+    URLs through search, save extracted content into an Obsidian vault, or create
+    calendar reminders. Also use to decrypt WeChat V2-encrypted images on macOS by
+    deriving the AES/XOR key from on-disk caches, without sudo or process-memory access.
+    Requires the local wechat-cli tool, a running WeChat client, and macOS Full Disk
+    Access. Do not use for content that must stay off-device, or where the user expects
+    cloud-based WeChat access.'
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
