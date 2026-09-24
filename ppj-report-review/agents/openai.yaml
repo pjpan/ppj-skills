@@ -1,0 +1,4 @@
+interface:
+  display_name: "ppj汇报评审skills"
+  short_description: "审查汇报逻辑、业务价值与证据链，重构面向管理层的清晰汇报"
+  default_prompt: "请使用 $ppj-report-review 评审这份汇报，指出逻辑问题并给出可直接使用的重构稿。"

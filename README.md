@@ -2,7 +2,7 @@
 
 个人维护的 [Agent Skills](https://code.claude.com/docs/en/skills) 集合。每个 skill 是一个独立的目录，遵循 `SKILL.md` + YAML frontmatter 的通用格式，可被支持该格式的 agent 运行时（Claude Code、ZCode、Codex 等）自动加载或按名调用。
 
-当前包含三个 skill：一个用于读取与整理本地微信聊天记录（含 macOS 图片解密），一个用于审计数字孪生/人格 agent 的复刻保真度，一个用于撰写和评审结构化技术报告。
+当前包含四个 skill：一个用于读取与整理本地微信聊天记录（含 macOS 图片解密），一个用于审计数字孪生/人格 agent 的复刻保真度，一个用于撰写和评审结构化技术报告，一个用于评审与重构面向管理层的业务/技术汇报。
 
 ## 包含的 Skills
 
@@ -11,6 +11,7 @@
 | [`wechat-smart-organizer`](./wechat-smart-organizer/SKILL.md) | 本地微信聊天记录的读取与整理 | “帮我读一下某个群的聊天记录”“把这个群最近一周的讨论总结一下”“从聊天里找出待办/会议/联系人”“解密微信图片并存到 Obsidian” |
 | [`digital-twin-fidelity-auditor`](./digital-twin-fidelity-auditor/SKILL.md) | 数字孪生/人格 agent 的复刻保真度审计 | “这个 twin 复刻了哪些维度、缺了什么”“它学到的是这个人还是一个原型”“结论有多少独立证据支撑” |
 | [`structured-technical-report`](./structured-technical-report/SKILL.md) | 技术报告的结构架构与评审 | 白皮书、架构报告、研究/战略文档的撰写、重构、评审；或“内容都对但读起来不成体系” |
+| [`ppj-report-review`](./ppj-report-review/SKILL.md) | 管理层汇报的逻辑诊断与重构 | 汇报评审、修改汇报逻辑、准备项目汇报、把零散材料整理成决策稿 |
 
 ---
 
@@ -117,6 +118,53 @@
 
 ---
 
+## 4. ppj-report-review
+
+把草稿、项目笔记或汇报提纲转化为**便于管理层理解与决策**的材料。方法上是金字塔原理（结论先行、分层论证）与战略叙事的结合，流程是「先诊断，再重构，最后自检」。
+
+### 三种工作模式
+
+按请求选择**评审**、**重构**或**模板**模式；默认输出诊断与重构稿，仅要求评审时不扩写全文，仅要求模板时不虚构原稿问题。
+
+### 一、诊断逻辑问题
+
+围绕七个维度检查实际存在的问题，每项问题给出原文短引或位置、影响及具体修改建议，并区分「影响决策的关键问题」与「表达优化」，不为凑数制造问题。
+
+| 维度 | 检查重点 |
+|---|---|
+| 业务价值 | 是否只列了做了什么，而没说为谁解决什么问题、为什么值得投入 |
+| 结论与层级 | 是否结论先行；同层条目是否同一分类标准；是否把战略收益与功能任务混列 |
+| 分类完整性 | 尽量 MECE（不重叠且覆盖当前范围），但不强行凑三个维度 |
+| 证据与因果 | 收益是否有来源、基线、统计口径与时间范围；是否把相关性写成因果、把目标写成成果 |
+| 优先级与验证 | 为什么先选这个场景；可行性、验证成本、代表性、成功标准是否清楚 |
+| 执行与决策 | 交付物、里程碑、责任方、依赖、风险与资源诉求是否足以支持下一步决策 |
+| 叙事衔接 | 章节间是否有因果、时间或角色递进；是否有无论据支撑的跳跃 |
+
+**事实约束**：保留原材料的数字、单位、日期和限定条件；区分已验证事实、用户目标、推断与待验证假设。缺失信息标注「待补充」并说明需补什么证据，不编造客户、数据、试点成果、承诺或来源；不默认承诺 10 倍收益，尚无试点时给出验证计划。
+
+### 二、重构汇报
+
+先用一至三句话交代核心结论、证据与期望获得的决策，再默认按四阶段组织正文（用户已有强制模板时映射到该模板；按项目阶段缩减不适用部分，不把日常进展汇报扩成平台战略）。
+
+| 阶段 | 应回答的问题 |
+|---|---|
+| 1. 背景与核心价值（Why） | 为什么现在做、业务价值是什么（用 SCQA 串联现状/矛盾/关键问题/回答，再以结论先行顺序呈现） |
+| 2. 聚焦场景与验证（Where / How） | 为什么先做这里、如何判断有效（场景选择理由、MVP、试点证据及局限） |
+| 3. 交付与推广（What） | 交付什么、给谁用、何时落地（按角色或业务环节组织，列里程碑、责任、依赖、风险） |
+| 4. 后续行动与决策诉求（Next） | 需要谁决定什么、下一步如何推进（资源、支持方、决策事项、时间要求、检查点） |
+
+### 三、默认输出
+
+评审主要问题（按重要性列「原文依据 → 问题及影响 → 修改建议」，材料足够好时明确指出，无须强行批评）、重构后的汇报（已填入现有事实，或按用户指定格式的可直接使用稿，保留必要的「待补充」标记）、叙事改进与待补信息（两至三条表达建议 + 影响决策的最小关键补充项，建议与事实分开表述）。
+
+### 交付前自检
+
+So What（开头能否让读者知道业务价值与所需决策）、Why This（起点选择是否有依据、验证方案能否支持下一步）、MECE（同层分类是否一致）、事实（是否把愿景写成结果或新增无来源数字与承诺）、可行动（读者是否知道谁做什么、何时检查、还缺什么证据）。用户未要求时不输出内部自检过程。
+
+该 skill 为自包含设计，没有 `references/`，也不依赖特定平台、联网服务或本地路径——没有文件工具时可直接处理粘贴的正文。
+
+---
+
 ## 目录结构
 
 ```
@@ -140,13 +188,16 @@
 │       ├── quality-rubric.md
 │       ├── fidelity-benchmark.md
 │       └── application-readiness.md
-└── structured-technical-report/
-    ├── SKILL.md
-    ├── agents/openai.yaml
-    ├── assets/icon.svg
-    └── references/
-        ├── review-checklist.md
-        └── writing-principles.md
+├── structured-technical-report/
+│   ├── SKILL.md
+│   ├── agents/openai.yaml
+│   ├── assets/icon.svg
+│   └── references/
+│       ├── review-checklist.md
+│       └── writing-principles.md
+└── ppj-report-review/
+    ├── SKILL.md                      # 自包含，无 references/
+    └── agents/openai.yaml
 ```
 
 ## 安装与使用
@@ -159,6 +210,7 @@ git clone git@github.com:pjpan/ppj-skills.git
 cp -R ppj-skills/wechat-smart-organizer          ~/.agents/skills/
 cp -R ppj-skills/digital-twin-fidelity-auditor   ~/.agents/skills/
 cp -R ppj-skills/structured-technical-report     ~/.agents/skills/
+cp -R ppj-skills/ppj-report-review               ~/.agents/skills/
 ```
 
 或直接软链，便于 `git pull` 后生效：
@@ -179,6 +231,8 @@ ln -s "$PWD/ppj-skills/wechat-smart-organizer" ~/.agents/skills/wechat-smart-org
 ## 设计约定
 
 这些 skill 共享同一套写作约定：主流程保持精简，只在需要时引导模型读取详细参考文档；概念必须可区分、术语必须一致；论断强度必须匹配证据强度，不把演示效果当作能力证据。
+
+在目录与 `SKILL.md` 层面，所有 skill 都符合 Agent Skills 规范：frontmatter 仅使用 `name` 与 `description`（`name` 为必填、全小写连字符格式且与目录名一致），`references/` 中的每个文件都由 `SKILL.md` 显式引用并说明读取时机，主文件保持在 500 行以内。
 
 ## License
 
