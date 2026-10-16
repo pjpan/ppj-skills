@@ -47,6 +47,7 @@
 | 文件 | 内容 |
 |---|---|
 | [`references/commands.md`](./wechat-smart-organizer/references/commands.md) | wechat-cli 常用命令速查 |
+| [`scripts/wechat_preflight.py`](./wechat-smart-organizer/scripts/wechat_preflight.py) | **数据新鲜度前置检查**：微信是否在运行、本地库是否过期，按退出码决定继续/中止 |
 | [`scripts/wechat_v2_image_decrypt.py`](./wechat-smart-organizer/scripts/wechat_v2_image_decrypt.py) | V2 图片/视频离线解密（磁盘派生密钥） |
 | [`scripts/extract_key_info.py`](./wechat-smart-organizer/scripts/extract_key_info.py) | 从聊天记录提取任务/时间/联系人等结构化信息 |
 | [`scripts/save_to_obsidian.py`](./wechat-smart-organizer/scripts/save_to_obsidian.py) | 按类型写入 Obsidian 笔记 |

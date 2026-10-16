@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.3.1
+version: 1.4.0
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -36,6 +36,60 @@ BINARY="/opt/homebrew/lib/node_modules/@canghe_ai/wechat-cli/node_modules/@cangh
 ```
 
 不要用 `wechat-cli history ... 2>&1 | python3 ...`（管道不生效），必须先输出到文件。
+
+## 🚨 第 0 步：数据新鲜度前置检查（任何拉取前必做）
+
+**wechat-cli 读取的是微信 Mac 客户端的本地数据库。** 如果微信客户端没有运行（或启动即崩），
+本地库就停止更新——**wechat-cli 仍然"能跑通"、退出码为 0，但取不到任何新消息**。
+这是一种**静默失败**，历史上曾导致周报自动化空跑 30–75 分钟后被取消或超时。
+
+因此**每次拉取微信数据前，必须先跑前置检查**：
+
+```bash
+PY="python3"
+PREFLIGHT="scripts/wechat_preflight.py"   # 相对于本 skill 目录
+"$PY" "$PREFLIGHT"          # 人类可读输出
+"$PY" "$PREFLIGHT" --json   # 机器可读（供自动化判断）
+```
+
+退出码含义：
+
+| 退出码 | 含义 | 应该怎么做 |
+|-------|------|-----------|
+| `0` | 微信在运行，数据新鲜 | 正常继续 |
+| `2` | 微信未运行且自动拉起失败 | **中止任务**，提示用户人工打开微信并登录 |
+| `3` | 微信在运行但本地数据过期 | **中止任务**，提示用户在微信里打开对应群聊触发同步 |
+| `4` | 无法读取会话（wechat-cli 异常） | 检查 wechat-cli 安装与权限 |
+| `1` | 其他错误 | 人工排查 |
+
+**判定逻辑**：取所有会话中最新的消息时间戳，与当前时间比较。
+默认 `--max-age-hours 30`（超过则告警）、`--hard-fail-hours 48`（超过则中止）。
+
+### 关键排查经验：微信"启动即退出"
+
+若前置检查报 `微信未运行` 或 `数据过期`，按以下顺序排查（**先查证再动手，不要盲目重装**）：
+
+1. **确认进程**：`ps -Ao pid,etime,command | grep -F "WeChat.app/Contents/MacOS/WeChat" | grep -v AppEx`
+2. **确认是崩溃还是没开**：微信启动失败时会在容器里写崩溃标记
+   `app_data/magicdy/cp/LD_CRASH_MARKER_*`；系统崩溃报告在 `~/Library/Logs/DiagnosticReports/`
+3. **验证 App 是否完好**（决定要不要重装）：
+   ```bash
+   codesign --verify --deep --strict /Applications/WeChat.app   # 退出码 0 = 签名完好
+   spctl -a -vvv /Applications/WeChat.app                       # accepted = Gatekeeper 通过
+   xattr -l /Applications/WeChat.app                            # 不应有 com.apple.quarantine
+   ```
+4. **验证热更新插件是否损坏**：容器里的 `app_data/xplugin/plugins/Magicdy/<ver>/extracted/`
+   带有 `file_component.xml`（含每个文件的期望 md5 与 length），可逐个校验；
+   `config.data` / `config.data.sig` 是签名文件。**插件损坏是启动崩溃的常见原因之一，但需实测校验，不要凭猜。**
+5. **对照实验排除环境问题**：`open -b com.apple.Safari` 与 `open -b com.apple.MobileSMS`
+   （沙盒应用）。若它们能常驻而微信不能，说明**是微信自身的问题，不是执行环境**。
+6. **启动方式**：`open -a WeChat`（不带路径）或 `open -b com.tencent.xinWeChat` 比 `open -a /Applications/WeChat.app` 更可靠。
+7. **只有在上述验证指向 App 包本身异常时，才考虑重装**。注意：**重装 App 不会删除
+   `~/Library/Containers/com.tencent.xinWeChat`，聊天记录仍保留**；但重装会重置 App 包，
+   不会自动清理容器内的热更新插件状态。
+
+> 教训：**不要把"取不到数据"直接归因为"微信坏了要重装"**。按 1→6 逐步查证，
+> 大多数情况是"微信没在运行 / 没登录"而不是"安装损坏"。
 
 ## 前置检查
 
