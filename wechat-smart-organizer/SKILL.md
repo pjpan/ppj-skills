@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.4.0
+version: 1.5.0
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -65,31 +65,64 @@ PREFLIGHT="scripts/wechat_preflight.py"   # 相对于本 skill 目录
 **判定逻辑**：取所有会话中最新的消息时间戳，与当前时间比较。
 默认 `--max-age-hours 30`（超过则告警）、`--hard-fail-hours 48`（超过则中止）。
 
-### 关键排查经验：微信"启动即退出"
+### 关键排查经验：微信"启动即退出"（无窗口）
 
-若前置检查报 `微信未运行` 或 `数据过期`，按以下顺序排查（**先查证再动手，不要盲目重装**）：
+**症状**：前置检查报 `微信未运行`；手动 `open -b com.tencent.xinWeChat` 后主进程只活约 10 秒
+就消失；`wechat-cli sessions` 的会话时间戳全部冻结在某个过去时刻。
 
-1. **确认进程**：`ps -Ao pid,etime,command | grep -F "WeChat.app/Contents/MacOS/WeChat" | grep -v AppEx`
-2. **确认是崩溃还是没开**：微信启动失败时会在容器里写崩溃标记
-   `app_data/magicdy/cp/LD_CRASH_MARKER_*`；系统崩溃报告在 `~/Library/Logs/DiagnosticReports/`
-3. **验证 App 是否完好**（决定要不要重装）：
-   ```bash
-   codesign --verify --deep --strict /Applications/WeChat.app   # 退出码 0 = 签名完好
-   spctl -a -vvv /Applications/WeChat.app                       # accepted = Gatekeeper 通过
-   xattr -l /Applications/WeChat.app                            # 不应有 com.apple.quarantine
-   ```
-4. **验证热更新插件是否损坏**：容器里的 `app_data/xplugin/plugins/Magicdy/<ver>/extracted/`
-   带有 `file_component.xml`（含每个文件的期望 md5 与 length），可逐个校验；
-   `config.data` / `config.data.sig` 是签名文件。**插件损坏是启动崩溃的常见原因之一，但需实测校验，不要凭猜。**
-5. **对照实验排除环境问题**：`open -b com.apple.Safari` 与 `open -b com.apple.MobileSMS`
-   （沙盒应用）。若它们能常驻而微信不能，说明**是微信自身的问题，不是执行环境**。
-6. **启动方式**：`open -a WeChat`（不带路径）或 `open -b com.tencent.xinWeChat` 比 `open -a /Applications/WeChat.app` 更可靠。
-7. **只有在上述验证指向 App 包本身异常时，才考虑重装**。注意：**重装 App 不会删除
-   `~/Library/Containers/com.tencent.xinWeChat`，聊天记录仍保留**；但重装会重置 App 包，
-   不会自动清理容器内的热更新插件状态。
+**机制（实测确认）**：
 
-> 教训：**不要把"取不到数据"直接归因为"微信坏了要重装"**。按 1→6 逐步查证，
-> 大多数情况是"微信没在运行 / 没登录"而不是"安装损坏"。
+- 主进程启动 → 联网 → 协商插件版本 → 拉起 `WeChatAppEx`（Flue/Chromium 渲染运行时）
+- **但窗口从未出现**。微信主界面是 NSRemoteView，由 `WeChatAppEx` 承载渲染
+  （日志特征：`WindowServer ... <token: viewbridge-key-window>`、`RemoteView`）
+- `sample <pid> 5` 显示主线程数千个样本都停在 AppKit 事件循环里空闲等待（不是在等锁）
+- 约 10 秒后主进程**干净退出**（`launchservicesd` 打印 `QUITTING`，**主进程不产生崩溃报告**）
+- 真正崩的是渲染侧：`app_data/crashinfo/WeChatAppEx_*.dmp`（minidump）+
+  `app_data/magicdy/targets/{wxutility,wxocr}/cp/LD_CRASH_MARKER_<pid>` 不断累积
+- ⚠️ **不是 macOS 自动终止**：微信自己写的是 `_kLSApplicationWouldBeTerminatedByTALKey=0`（拒绝被终止），
+  写 `defaults write ... NSDisableAutomaticTermination` 也无效
+
+**已实测排除的原因（别重复浪费时间）**：
+
+| 假设 | 实测结论 |
+|---|---|
+| 重签名破坏 / Gatekeeper | ❌ App 是原件 Apple MAS 签名，无 `get-task-allow`，`spctl` = Mac App Store |
+| App 包资源缺失 | ❌ `codesign --verify --deep --strict` 通过，sealed resources 完整，`_MASReceipt` 在 |
+| 容器里有 root 属主文件 | ❌ `find ~/Library/Containers/com.tencent.xinWeChat ! -user $USER` 为空 |
+| 系统/App 在故障窗口更新过 | ❌ `InstallHistory.plist` 无对应记录 |
+| 热更新插件损坏 | ❌ 按 `file_component.xml` 校验 18/18 md5+length 全对 |
+| 插件元数据不一致 | ❌ 移开 `xplugin/info/plugin_command_info*` 让客户端重建，仍失败 |
+| Flue 运行时数据（`app_data/radium`，1.3G）损坏 | ❌ 整个移开仍失败 |
+| Chromium Code/GPU 缓存损坏 | ❌ 移开 `Library/Caches/profiles/*/Code Cache` 仍失败 |
+| 插件载荷需要重新下载 | ❌ 只活 10 秒，下不完 436MB，反而更糟 |
+
+**实测有效的恢复流程**：
+
+```bash
+C=~/Library/Containers/com.tencent.xinWeChat/Data/Documents/app_data
+# 1) 把 magicdy 运行时状态（含累积崩溃标记 + targets）整体移开，让客户端重建
+mv "$C/magicdy" "$C/magicdy.bak_$(date +%Y%m%d_%H%M%S)"
+# 2) 连续启动多次（每次观察 30 秒）；常需 3-5 次才成功
+for n in 1 2 3 4 5; do
+  open -b com.tencent.xinWeChat
+  for i in $(seq 1 15); do
+    ps -Ao pid,comm | grep -F "/Applications/WeChat.app/Contents/MacOS/WeChat" | grep -v AppEx | grep -v grep >/dev/null || break
+    sleep 2
+  done
+done
+```
+
+**如何确认真的修好了**（不要只看进程活着）：
+
+1. 主进程存活 > 30 秒（此前约 10 秒即消失）
+2. `wechat-cli sessions` 的**会话时间戳开始推进**（仍是旧日期 = 没修好）
+3. 目标群 `unread` 归零
+4. `find .../db_storage/message -type f -newermt '-3 minutes'` 有写入
+
+积压多天时同步需要几分钟，**此期间不要再次启动/杀掉微信**，否则会打断补齐。
+
+**预防**：任何拉取前先跑 `wechat_preflight.py`。微信没运行 → 直接中止任务，
+不要让自动化空跑到超时（历史上连续空跑 30–75 分钟被取消）。
 
 ## 前置检查
 
