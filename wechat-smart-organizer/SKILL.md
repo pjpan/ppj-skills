@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.5.2
+version: 1.5.3
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -264,6 +264,47 @@ wechat-cli members "群名"            # 群成员列表
 "$BINARY" export "联系人" --format markdown --output chat.md
 "$BINARY" favorites                   # 微信收藏
 ```
+
+## 微信收藏文章精读
+
+### 1. 取收藏清单
+
+```bash
+"$BINARY" favorites --limit 500 --format json > /tmp/fav.json
+"$BINARY" favorites --type article --limit 50 --format json   # 只看文章
+```
+
+返回字段只有 `id / type / time / summary / from / source_chat`，**没有 URL**。
+
+### 2. 从收藏库取原文链接
+
+`favorite.db` 里每条 `<favitem>` 是完整明文 XML，含 `pagetitle` / `pagedesc` / `link`：
+
+```bash
+PY="python3"
+"$PY" scripts/wechat_db_dump.py --db favorite/favorite.db --mode msgs > /tmp/fav_msgs.txt
+```
+
+用 `<favitem type="5">` 定位文章类，正则取 `<link>…</link>`，记得 `html.unescape`（URL 里是 `&amp;`）。
+
+> ⚠️ 多数 `<favitem>` **没有 `<createtime>`**（只有少数有）。**日期一律以 `favorites` CLI 返回的 `time` 为准**，用标题匹配库里条目，不要试图在库里按时间筛。
+
+### 3. 取全文（关键坑）
+
+`mp.weixin.qq.com` 对非浏览器请求一律返回「环境异常，完成验证后即可继续访问」——
+`curl` 加浏览器 UA 也一样（返回的是 JS 空壳，不存在 `js_content`）。
+
+**可行做法**：用**标题**做 WebSearch，结果里常能直接带出大段正文；再对可读镜像 WebFetch 取全文。
+常见镜像：`53ai.com`、`c163.com` / `163.com`、`news.qq.com`、`leiphone.com`、`bestblogs.dev`、`ima.qq.com`。
+
+> 判断抓取是否成功：页面应出现 `js_content` 或大段正文中文；如果只剩「视频 小程序 赞」这类导航文字，就是被验证页拦了。
+
+### 4. 精读产出
+
+写入 Obsidian（建议单独目录 `收藏精读/`，命名 `收藏精读_{起}_{止}.md`），结构建议：
+清单表 → 一句话导读 → 逐篇精读（论点/论据/数据/我的判断）→ **横向对照** → 可落地清单 → 金句 → 抓取说明与原文链接。
+
+> 多篇同主题时**不要逐篇平行总结**。找出它们互相矛盾的地方（对瓶颈的判断不同、数据不可比），那才是精读的价值。
 
 ## 链接URL补全流程（群聊总结必做步骤）
 
