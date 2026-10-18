@@ -23,8 +23,18 @@
 - IV 位于每页 `page_size - reserve` 处
 
 ⚠️ 该参数对大多数库有效（已实测 message_0 / message_fts / favorite / contact /
-sns / session 等），但 `message_resource.db`、`media_0.db` 用同一参数解不开
-（输出近似随机），需另找派生方式。
+sns / session 等），但存在两个已知限制：
+
+1. **这些 `.db` 不是原生 SQLCipher SQLite 布局**——解密后的页首字节不是 SQLite
+   的 b-tree 页类型（2/5/10/13），也拿不到 `SQLite format 3` 魔数（对照组
+   `message_0.db` 同样如此，而它的 `<msg>` XML 确实能完整解出）。所以别指望
+   「解密 → 拼回合法 .db → 用 sqlite3 查询」这条路，本脚本走的是**字节流抽取**。
+2. `message_resource.db` 用同一参数解不开（输出近似随机）；已排除密钥映射错误
+   （17 个库的密钥全部互试过）、PBKDF2 派生、以及 IV 位于页首/页尾的各种组合。
+   它的密钥可能已轮换，而 `~/.wechat-cli/all_keys.json` 是旧文件（root 所有，
+   由 `sudo wechat-cli init` 生成）——**建议用 `sudo wechat-cli init --force`
+   重新提取一次密钥**后再试。
+   `media_0.db` 用 reserve=64 可解，但内容是语音消息表 `VoiceInfo`，与链接类消息无关。
 
 用法
 ----
