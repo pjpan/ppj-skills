@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.5.1
+version: 1.5.2
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -187,11 +187,47 @@ sudo codesign --force --sign - --entitlements /dev/stdin /Applications/WeChat.ap
 EOF
 ```
 
-重签名完成后重新打开微信、登录，再执行 `sudo wechat-cli init`。
+#### ⚠️ 先判断「是否真的需要重新 init」
 
-> 说明：`get-task-allow` 只放开**进程内存读取**，供 `init` 阶段探测数据结构用。本技能的 V2 图片解密走**磁盘派生密钥**路线（见下文），并不依赖该 entitlement——即使 init 暂时不可用，图片解密仍可独立完成。
->
-> 副作用提醒：重签名会让微信的签名指纹变化，个别系统安全策略（如企业 MDM）可能提示异常；如遇问题可用同一命令重新签名回原状态，或升级/重装微信后重试。
+**重新签名是不可逆的**：`codesign --force --sign -` 会把 App Store 原始签名替换为 ad-hoc 签名，**没有命令能改回去**，只能从 App Store 重新下载安装整个 App 才能恢复。所以在动手前先确认真的需要：
+
+```bash
+# 1) 已有密钥是否还能用？（绝大多数情况可以，密钥存在即不必重新 init）
+ls -la ~/.wechat-cli/all_keys.json
+# 2) 当前签名是不是已经是 adhoc？（说明之前已经签过一次，别再签）
+codesign -dvvv /Applications/WeChat.app 2>&1 | grep -E "Signature|TeamIdentifier"
+```
+
+**关键事实（实测）**：
+
+| 事实 | 含义 |
+|---|---|
+| `get-task-allow` 只对**重签名之后新启动**的进程生效 | 正在运行的微信仍没有该权限，`task_for_pid` 必然继续失败，**必须重启微信** |
+| 重签名会保留原 entitlements（sandbox / app-groups / network 等） | 微信功能通常不受影响，`codesign --verify` 仍通过 |
+| 但 `Signature=adhoc`、`TeamIdentifier=not set` | App Store 更新可能失败，只能靠重装恢复官方签名 |
+| `task_for_pid` 失败**不代表密钥不可用** | 老的 `all_keys.json` 往往仍能解开本地库，不必为此重签 |
+
+> 建议：**除非确实读不到数据，否则不要跑 `sudo wechat-cli init`**。本技能的图片解密、DB 导出都只用磁盘密钥，与 `init` 无关。
+
+#### 消息显示为「当前微信版本不支持展示该内容」
+
+`wechat-cli` 遇到不认识的消息类型（常见于**视频号转发**）会输出
+`[链接/文件] 当前微信版本不支持展示该内容，请升级至最新版本。`
+
+**这句话是 `wechat-cli` 的兜底文案，不是库里存的内容**（实测：17 个本地库里搜不到该字符串，`wechat-cli search` 也为 0 命中）。原始载荷仍在磁盘上，只是解析器读不出来。
+
+推荐解法（按成本从低到高）：
+
+1. **收藏法（最省事，已验证）**：在手机上把这批消息**收藏**，然后
+   ```bash
+   wechat-cli favorites --type video --limit 30 --format json
+   wechat-cli favorites --limit 30 --format json
+   ```
+   收藏会保存完整标题/描述，实测 `--type video` 能返回视频号的完整文案。**不需要 sudo、不需要解密、不需要改微信签名。**
+2. **手机复制链接** → 转发到「文件传输助手」或直接粘贴给 Agent。
+3. **手机「聊天记录迁移到电脑」** → 同时补齐历史缺失区间。
+
+> 不要为这类消息去重签微信或反复折腾 `init`——投入产出比极低，收藏法一条命令就解决。
 
 ## 核心命令参考
 
@@ -552,6 +588,7 @@ tags: [#微信 #待办] 或 [#微信 #会议]
 |---------|---------|
 | "微信未运行" | 启动微信后重试 |
 | "需要初始化" | 运行 `sudo wechat-cli init` |
-| `task_for_pid failed`（init 时） | macOS 进程内存访问限制，与磁盘权限无关；见上文「macOS 报错 `task_for_pid failed`」，重新签名 WeChat 后重启并重试 |
+| `task_for_pid failed`（init 时） | macOS 进程内存访问限制，与磁盘权限无关；见上文「macOS 报错 `task_for_pid failed`」。**先确认是否真需要重新 init**（重签名不可逆、且必须重启微信才生效） |
+| 消息显示「当前微信版本不支持展示该内容」 | 是 wechat-cli 的兜底文案，不是库内容；用 `wechat-cli favorites` 或手机复制链接，不要重签微信 |
 | "权限被拒绝" | 检查终端是否具有完全磁盘访问权限 |
 | "找不到联系人" | 使用 `wechat-cli sessions` 确认正确的联系人名称 |
