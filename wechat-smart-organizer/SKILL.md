@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.5.3
+version: 1.5.4
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -399,6 +399,57 @@ SCRIPT="scripts/wechat_v2_image_decrypt.py"   # 相对于本 skill 目录
 类型: orig / hd / thumb
 格式: jpg / png / hevc（wechat 专有视频容器）
 ```
+
+### wxgf（HEVC 静帧）解码：解出来的 `.hevc` 打不开怎么办
+
+微信 4.x 的图片有一类走 `wxgf` 容器，解码脚本会输出 `*.hevc`，但：
+
+- `file` 显示 `data`（不是标准 HEIF/MP4，没有容器头）
+- **`sips` / 预览 / 双击都打不开**；系统自带 `ffmpeg` 通常也没有
+
+结构：文件头是 ASCII `wxgf` + 约 36 字节元数据，**真正的 HEVC Annex-B 码流从 `00 00 00 01 40 01`（VPS）开始**。
+
+可靠解法（纯 Python，不依赖系统 ffmpeg）：
+
+```bash
+python3 -m pip install av          # PyAV，自带 FFmpeg 库
+```
+
+```python
+import av
+data = open('xxx.hevc','rb').read()
+i = data.find(b'\x00\x00\x00\x01\x40\x01')   # 跳过 wxgf 头
+open('/tmp/x.h265','wb').write(data[i:])
+c = av.open('/tmp/x.h265', format='hevc')
+for fr in c.decode(video=0):
+    fr.to_image().save('xxx.png')             # 只取第一帧
+    break
+```
+
+> 注意：不要把 `.hevc` 直接交给 `av.open()`，必须先剥掉 `wxgf` 头，否则解不出帧。
+> 同理，`_t.dat` 解出的 `_t.jpg` 往往只有 200–500px 宽，**只够看轮廓，不能用于 OCR 或打印**，必须解全尺寸文件。
+
+### 从截图批量做题面 PDF（试卷重组）
+
+手机截屏发来的题目常见形态：**每张图是一道题**，底部带 `【答案】：xxx`。重组成无答案试卷：
+
+1. **排序**：不要用文件 mtime（同一批图时间戳可能只差 1–2 秒且乱序）。用 OCR 读出图片里的 `第 N 题`，按 N 排序。
+2. **抹答案**：OCR 返回每段文字的 bbox，取包含 `答案` 的那一段，把 `[y-6, y+h+7]` 整行涂白。
+   ⚠️ **不要"从答案行涂到图片底部"**——有的题答案在题干下方、图形上方，涂到底会把图删掉。
+3. **排版**：按版心宽度等比缩放（同一批截图字号一致，**必须用统一缩放比例**，不要逐题拉伸），A4 流式拼版，放不下就换页。
+4. **验收**：抹完再 OCR 一遍，确认 `答案` 命中数为 0；并渲染成 PNG 目视检查有没有误删。
+
+macOS 上的 OCR 用系统 Vision 即可（无需装 tesseract）：
+
+```bash
+python3 -m pip install pyobjc-framework-Vision pyobjc-framework-Quartz
+```
+
+`VNRecognizeTextRequest` + `recognitionLanguages=["zh-Hans","en-US"]`，
+`recognitionLevel` 设为 `0`（accurate）；bbox 是归一化坐标且**原点在左下**，
+换算成像素：`y = (1 - origin.y - size.height) * H`。
+
+> Swift 方案（`swiftc` + Vision）在本机会因 **Swift 6.3 与 macOS 26 SDK(6.4) 不匹配** 编译失败，直接用 pyobjc 更省事。
 
 ### 关键限制
 
