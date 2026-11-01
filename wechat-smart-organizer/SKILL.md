@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.5.4
+version: 1.6.0
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -466,6 +466,71 @@ python3 -m pip install pyobjc-framework-Vision pyobjc-framework-Quartz
 | `磁盘派生失败` | kvcomm 缓存目录被清理 | 重新登录微信生成新缓存 |
 | 解密后 `file` 显示 data | 正常，wxgf 是微信专有格式 | 用 ffmpeg `-i` 或微信播放 |
 | 188 个文件但只有 50 个有图 | 部分月目录为空月 | 检查 `find ... -name "*.dat" \| wc -l` |
+
+## 按群归档：图片 + 附件 → Obsidian
+
+用户说「把某某群最近一个月的图片/附件存到 Obsidian」时走这套流程。**核心难点是找到该群的 attach 目录**——它不是按群名，而是 `md5(chatroom_id)`。
+
+### 1. 定位 attach 目录
+
+```bash
+# a) 取 chatroom_id：解密 contact.db 搜群名
+python3 - <<'EOF'
+import json, os, re
+from Crypto.Cipher import AES
+KEYS=json.load(open(os.path.expanduser("~/.wechat-cli/all_keys.json")))
+ROOT=os.path.expanduser("~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/<wxid>_<hex4>/db_storage")
+rel="contact/contact.db"; PAGE,R=4096,80
+data=open(os.path.join(ROOT,rel),'rb').read(); key=bytes.fromhex(KEYS[rel]["enc_key"])
+out=bytearray()
+for i in range(len(data)//PAGE):
+    pg=data[i*PAGE:(i+1)*PAGE]; sk=16 if i==0 else 0
+    out+=AES.new(key,AES.MODE_CBC,pg[PAGE-R:PAGE-R+16]).decrypt(pg[sk:PAGE-R])
+p=bytes(out)
+i=p.find("群名关键字".encode())
+print(p[max(0,i-300):i+100].decode("utf-8","replace"))
+EOF
+
+# b) attach 目录名 = md5(chatroom_id)
+python3 -c "import hashlib;print(hashlib.md5(b'56901689217@chatroom').hexdigest())"
+```
+
+> 已验证：`md5("44136003054@chatroom") == 372ccdfb50bce33523e512d8f22a22ae`（TGO 群），规则可靠。
+
+### 2. 判断图片真实可用质量（**最重要的一步**）
+
+同一张图最多有 3 个文件，必须按体积取最大者：
+
+| 后缀 | 含义 | 用途 |
+|---|---|---|
+| `<md5>_t.dat` | 缩略图 | 常仅 180–210 px，**只能看版式，不能读文字** |
+| `<md5>.dat` | 普通图（wxgf/HEVC 容器） | 需解密 + 转码 |
+| `<md5>_h.dat` | 高清原图 | 最优 |
+
+**关键事实：微信只在「打开该会话」时才下载原图。** 群里有未读 → 多数图只有 `_t.dat`。所以：
+- 先统计 `find ... -name "*_t.dat" | wc -l` 与 `-name "*.dat" ! -name "*_t.dat"` 的比例
+- 若绝大多数只有缩略图，**如实告知用户**并给出补齐办法（让他打开群往上滚一下，再重跑），不要假装归档完整
+
+按 base 去重取最优：
+
+```python
+base = re.sub(r'(_t|_h)?\.dat$', '', name)   # 同图分组
+items.sort(reverse=True)                     # 体积降序 → [0] 即最高画质
+```
+
+### 3. 归档命名
+
+`<YYYYmmdd_HHMMSS>_<hd|full|thumb>_<hash8>.jpg`，按 `月的 .dat mtime` 分 `图片/YYYY-MM/`。
+日期用**源 `.dat` 的 mtime**（≈接收时间），不要用解密输出文件的 mtime（是复制时间）。
+
+### 4. 附件
+
+`msg/file/YYYY-MM/` 下按文件名 `find`，复制后必须 `md5` 比对并 `chmod u+w`（微信文件常是只读）。
+
+### 5. 索引笔记
+
+在归档目录写 `README.md`，至少包含：数据概况表、附件表（带 `[[附件/...]]` 链接）、图片清单、**数据说明**（缺失日期、缩略图比例、占位符条数）。
+表格内的 wiki 链接别名要写 `\|`（反斜杠转义竖线），否则表格会被截断。
 
 ## Obsidian Vault 检测
 
