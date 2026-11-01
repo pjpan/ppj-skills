@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.6.0
+version: 1.7.0
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -342,9 +342,60 @@ Obsidian格式：["Token"必须死？](https://m.huxiu.com/article/4861200.html)
 ```
 
 ### 批量处理建议
-- 每次总结一般有 20-40 条链接，可并发搜索提升效率
-- 搜索不到的链接标注 `（链接待补全）` 而非留空
+- 搜索不到的链接标注 `（未检索到公开地址）` 而非留空
 - `[链接/文件]-不支持的消息` 无法获取标题和URL，直接跳过
+- `mp.weixin.qq.com` 对 curl / WebFetch **一律返回「环境异常」验证页**（JS 空壳，无 `js_content`），
+  加浏览器 UA 也没用。只能靠 WebSearch 拿镜像/转载地址（53ai、163、qq、凤凰、huxiu 等）
+
+### 大规模补全（>20 条）：必须用可恢复脚本
+
+**踩过的坑**：一次性补 80+ 条链接时，若「先全部搜完再一次性回写」，一旦被中断
+（499 canceled / 超时 / 后端重启）**全部成果归零**。实测两次运行分别死在 953s、977s，
+各完成约 10 次搜索，文件仍是 84 条 `(待补全)`。
+
+`scripts/report_links.py` 把进度从「模型上下文」搬到磁盘，做到**可恢复 + 幂等**：
+
+```bash
+PY="python3"
+LINKS="scripts/report_links.py"
+REPORT="/path/to/群聊总结_xxx.md"
+
+"$PY" "$LINKS" status --report "$REPORT"                    # 进度：仍有几条待补
+"$PY" "$LINKS" list   --report "$REPORT" --limit 5          # TSV：编号<TAB>日期<TAB>标题
+
+# 每确认一条立即落盘（sidecar: 同名 .links.json）
+"$PY" "$LINKS" record --report "$REPORT" --index 11 --url "https://..."
+"$PY" "$LINKS" record --report "$REPORT" --index 13 --unresolved
+
+# 每批结束立刻回写（幂等，可反复执行）
+"$PY" "$LINKS" apply  --report "$REPORT"
+```
+
+**必须遵守的三条纪律**
+1. **`apply` 之前不开下一批搜索**——宁可少搜几条，也不能让结果只停在内存里
+2. **单轮上限 12–15 条**（约 13 分钟）。超过这个量级就会撞上被杀的时间点
+3. **剩余条目留给下一轮**——脚本会跳过已完成的，续跑天然接续
+
+`apply` 会把状态行改写成累计口径：
+`> 状态：链接补全 28/84（可打开 24 · 无公开地址 4），剩余 56 条待补｜更新于 ...`
+
+### 上游配套：控制表格规模
+
+第二阶段每轮只能稳定处理 12–15 条，所以**第一步写骨架时链接表最多 30 条**
+（只收头部要闻/投融资/技术产品相关的），其余零散链接用一行文字说明即可。
+表开得越大，越做不完——这是「能完成」比「看起来全」更重要的取舍。
+
+## 长任务写作：分段落盘
+
+适用于周报/长文这类要写几十 KB 的任务。原则：**绝不允许把写文件放到最后一次性完成**。
+
+1. **先落盘骨架**：结构完整（元信息、全部章节标题、闭合的表格），正文先写 `（待补充）`
+2. **再逐节 Edit 填充**，每节写完立刻落盘
+3. **收尾即结束**：写完不再复核、不重复读文件、不重新统计
+
+这样任何时刻被打断，磁盘上都有一个可用的产物，而不是零产出。
+历史教训：11/01 那次第一阶段跑了 39 分钟，产出完整但因为后端重启打断收尾，
+状态只能记为 `partial_delivered`；若过程中已分段落盘，中断也只是「少最后一节」。
 
 ## V2 图片解密（macOS 群聊图片必做步骤）
 
