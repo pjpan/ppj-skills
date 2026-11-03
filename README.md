@@ -2,7 +2,7 @@
 
 个人维护的 [Agent Skills](https://code.claude.com/docs/en/skills) 集合。每个 skill 是一个独立的目录，遵循 `SKILL.md` + YAML frontmatter 的通用格式，可被支持该格式的 agent 运行时（Claude Code、ZCode、Codex 等）自动加载或按名调用。
 
-当前包含四个 skill：一个用于读取与整理本地微信聊天记录（含 macOS 图片解密），一个用于审计数字孪生/人格 agent 的复刻保真度，一个用于撰写和评审结构化技术报告，一个用于评审与重构面向管理层的业务/技术汇报。
+当前包含十一个 skill：四个个人维护的 skill，以及七个从开源上游同步、可供多个代码 Agent 共用的 skill。
 
 ## 包含的 Skills
 
@@ -12,6 +12,15 @@
 | [`digital-twin-fidelity-auditor`](./digital-twin-fidelity-auditor/SKILL.md) | 数字孪生/人格 agent 的复刻保真度审计 | “这个 twin 复刻了哪些维度、缺了什么”“它学到的是这个人还是一个原型”“结论有多少独立证据支撑” |
 | [`structured-technical-report`](./structured-technical-report/SKILL.md) | 技术报告的结构架构与评审 | 白皮书、架构报告、研究/战略文档的撰写、重构、评审；或“内容都对但读起来不成体系” |
 | [`ppj-report-review`](./ppj-report-review/SKILL.md) | 管理层汇报的逻辑诊断与重构 | 汇报评审、修改汇报逻辑、准备项目汇报、把零散材料整理成决策稿 |
+| [`anatomy`](./anatomy/SKILL.md) | 构建精细、可交互的等距 SVG / WebGL 技术图解 | 解释机器、系统、工程机制，生成可运行的可视化成品 |
+| [`k12-core-literacy-planning`](./k12-core-literacy-planning/SKILL.md) | 面向中国 K-12 核心素养的课程设计 | 课标导向、真实情境、任务群与表现性评价 |
+| [`lecture-style`](./lecture-style/SKILL.md) | 连续、系统的大师课式讲授设计 | 系统讲解、讲透一个主题、用多案例建立完整论证 |
+| [`fact-check`](./fact-check/SKILL.md) | 课程或内容的事实核查 | 校验数字、日期、归因、专业事实与跨页矛盾 |
+| [`feynman-learning`](./feynman-learning/SKILL.md) | 把内容转化为费曼学习循环 | Teach-back、暴露知识缺口、去术语解释与迁移应用 |
+| [`stage-design`](./stage-design/SKILL.md) | 构建单个 OpenMAIC 课堂的基础流程 | 课堂规划、页面生成、角色设置、持久化与验收 |
+| [`pro-editing`](./pro-editing/SKILL.md) | 对已有课程进行专业编辑 | 局部修订现有课堂，保持已确认内容和结构稳定 |
+
+七个上游同步 Skill 的来源、固定提交版本与许可证见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)。
 
 ---
 
@@ -221,10 +230,7 @@ So What（价值是否先于挑战出现）、Why This（起点选择是否有�
 ```bash
 # 个人级安装（以 ~/.agents/skills 为例）
 git clone git@github.com:pjpan/ppj-skills.git
-cp -R ppj-skills/wechat-smart-organizer          ~/.agents/skills/
-cp -R ppj-skills/digital-twin-fidelity-auditor   ~/.agents/skills/
-cp -R ppj-skills/structured-technical-report     ~/.agents/skills/
-cp -R ppj-skills/ppj-report-review               ~/.agents/skills/
+cp -R ppj-skills/<skill-name> ~/.agents/skills/
 ```
 
 或直接软链，便于 `git pull` 后生效：
