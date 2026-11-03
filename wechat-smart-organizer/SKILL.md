@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.7.0
+version: 1.8.0
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -46,11 +46,11 @@ BINARY="/opt/homebrew/lib/node_modules/@canghe_ai/wechat-cli/node_modules/@cangh
 因此**每次拉取微信数据前，必须先跑前置检查**：
 
 ```bash
-PY="python3"
-PREFLIGHT="scripts/wechat_preflight.py"   # 相对于本 skill 目录
-"$PY" "$PREFLIGHT"          # 人类可读输出
-"$PY" "$PREFLIGHT" --json   # 机器可读（供自动化判断）
-"$PY" "$PREFLIGHT" --chat "5-TGO和朋友们的AGI"   # 指定目标群（默认即 TGO 群）
+PY=/Users/peterpan/.workbuddy/binaries/python/envs/default/bin/python3
+SCRIPT="/Users/peterpan/.workbuddy/skills/wechat-smart-organizer/scripts/wechat_preflight.py"
+"$PY" "$SCRIPT"          # 人类可读输出
+"$PY" "$SCRIPT" --json   # 机器可读（供自动化判断）
+"$PY" "$SCRIPT" --chat "5-TGO和朋友们的AGI"   # 指定目标群（默认即 TGO 群）
 ```
 
 退出码含义：
@@ -70,8 +70,8 @@ PREFLIGHT="scripts/wechat_preflight.py"   # 相对于本 skill 目录
 
 > ⚠️ **为什么不能按"全局最新会话"判断**：微信的 `brandsessionholder` /
 > `brandservicesessionholder` 这类内部服务会话一联网就立刻更新，而群消息可能完全没同步。
-> 按全局最新判断会在**目标群其实没数据**时误报"数据新鲜"。`--json` 输出里的
-> `judged_by` 字段会告诉你这次是依据哪个会话判断的。
+> 按全局最新判断会在**目标群其实没数据**时误报"数据新鲜"（2026-10-17 实测踩过这个坑）。
+> `--json` 输出里的 `judged_by` 字段会告诉你这次是依据哪个会话判断的。
 
 > ⚠️ **"数据新鲜"≠"区间数据完整"**：客户端重连后**只同步各会话的最新消息**（用于刷新会话列表），
 > 某个群的完整历史需要**在微信里打开该群**才会从服务器拉取。因此若目标群"最后消息时间正常"
@@ -83,7 +83,7 @@ PREFLIGHT="scripts/wechat_preflight.py"   # 相对于本 skill 目录
 **症状**：前置检查报 `微信未运行`；手动 `open -b com.tencent.xinWeChat` 后主进程只活约 10 秒
 就消失；`wechat-cli sessions` 的会话时间戳全部冻结在某个过去时刻。
 
-**机制（实测确认）**：
+**机制（2026-10-17 实测确认）**：
 
 - 主进程启动 → 联网 → 协商插件版本 → 拉起 `WeChatAppEx`（Flue/Chromium 渲染运行时）
 - **但窗口从未出现**。微信主界面是 NSRemoteView，由 `WeChatAppEx` 承载渲染
@@ -187,6 +187,8 @@ sudo codesign --force --sign - --entitlements /dev/stdin /Applications/WeChat.ap
 EOF
 ```
 
+重签名完成后重新打开微信、登录，再执行 `sudo wechat-cli init`。
+
 #### ⚠️ 先判断「是否真的需要重新 init」
 
 **重新签名是不可逆的**：`codesign --force --sign -` 会把 App Store 原始签名替换为 ad-hoc 签名，**没有命令能改回去**，只能从 App Store 重新下载安装整个 App 才能恢复。所以在动手前先确认真的需要：
@@ -281,8 +283,9 @@ wechat-cli members "群名"            # 群成员列表
 `favorite.db` 里每条 `<favitem>` 是完整明文 XML，含 `pagetitle` / `pagedesc` / `link`：
 
 ```bash
-PY="python3"
-"$PY" scripts/wechat_db_dump.py --db favorite/favorite.db --mode msgs > /tmp/fav_msgs.txt
+PY=/Users/peterpan/.workbuddy/binaries/python/envs/default/bin/python3
+"$PY" ~/.workbuddy/skills/wechat-smart-organizer/scripts/wechat_db_dump.py \
+    --db favorite/favorite.db --mode msgs > /tmp/fav_msgs.txt
 ```
 
 用 `<favitem type="5">` 定位文章类，正则取 `<link>…</link>`，记得 `html.unescape`（URL 里是 `&amp;`）。
@@ -416,32 +419,30 @@ xor_key = code & 0xFF                        # 0-255
 ### 一键解密 TGO 群聊图片
 
 ```bash
-PY="python3"
-SCRIPT="scripts/wechat_v2_image_decrypt.py"   # 相对于本 skill 目录
+SCRIPT="/Users/peterpan/.workbuddy/skills/wechat-smart-organizer/scripts/wechat_v2_image_decrypt.py"
+PY="/Users/peterpan/.workbuddy/binaries/python/envs/default/bin/python3"
 
 # 1. 仅派生并显示密钥（不解密）
 "$PY" "$SCRIPT" --derive-only
 
-# 2. 解密 TGO 群指定月份所有图片到 Obsidian（默认输出见下表）
+# 2. 解密 TGO 群当前月份所有图片到 Obsidian
 "$PY" "$SCRIPT" --tgo --months 2026-07 \
-    --output "~/Documents/obsidian/ppj/30-AI与大模型/资料附件/群聊图片/2026-07"
+    --output "/Users/peterpan/Documents/obsidian/ppj/30-AI与大模型/资料附件/群聊图片/2026-07"
 
 # 3. 测试模式（只解 5 个文件）
 "$PY" "$SCRIPT" --tgo --months 2026-07 --output /tmp/test --limit 5 --verbose
 ```
 
-### 默认路径（脚本内置，均可用环境变量覆盖）
+### 默认路径（脚本内置）
 
-| 项目 | 路径 | 覆盖方式 |
-|------|------|---------|
-| 微信容器 | `~/Library/Containers/com.tencent.xinWeChat/Data/Documents` | `WECHAT_CONTAINER` |
-| 用户子目录 | `xwechat_files/<wxid>_<hex4>`（自动发现最新的一个） | `WECHAT_WXID_DIR` |
-| TGO 群 attach | `msg/attach/372ccdfb50bce33523e512d8f22a22ae/{YYYY-MM}/Img/` | `TGO_ATTACH_HASH` / `--attach-dir` |
-| Obsidian 输出 | `~/Documents/obsidian/ppj/30-AI与大模型/资料附件/群聊图片/{YYYY-MM}/` | `TGO_OBSIDIAN` / `--output` |
-| 密钥缓存 | `~/.cache/wechat-v2-decrypt/image_key.json` | — |
-| 解密清单 | 输出目录下的 `decrypt_manifest.json` | — |
-
-> 默认的 attach hash 属于 TGO 群，换群时请用 `--attach-dir` 指定该群的 attach 目录（位于 `xwechat_files/<wxid>_<hex4>/msg/attach/<hash>/`）。
+| 项目 | 路径 |
+|------|------|
+| 微信容器 | `~/Library/Containers/com.tencent.xinWeChat/Data/Documents` |
+| 用户子目录 | `xwechat_files/wpppj001_1414` |
+| TGO 群 attach | `msg/attach/372ccdfb50bce33523e512d8f22a22ae/{YYYY-MM}/Img/` |
+| Obsidian 输出 | `~/Documents/obsidian/ppj/30-AI与大模型/资料附件/群聊图片/{YYYY-MM}/` |
+| 密钥缓存 | `~/.cache/wechat-v2-decrypt/image_key.json` |
+| 解密清单 | 输出目录下的 `decrypt_manifest.json` |
 
 ### 输出文件命名规则
 
@@ -463,7 +464,8 @@ SCRIPT="scripts/wechat_v2_image_decrypt.py"   # 相对于本 skill 目录
 可靠解法（纯 Python，不依赖系统 ffmpeg）：
 
 ```bash
-python3 -m pip install av          # PyAV，自带 FFmpeg 库
+PY=/Users/peterpan/.workbuddy/binaries/python/envs/default/bin/python3
+"$PY" -m pip install av          # PyAV，自带 FFmpeg 库
 ```
 
 ```python
@@ -493,7 +495,7 @@ for fr in c.decode(video=0):
 macOS 上的 OCR 用系统 Vision 即可（无需装 tesseract）：
 
 ```bash
-python3 -m pip install pyobjc-framework-Vision pyobjc-framework-Quartz
+"$PY" -m pip install pyobjc-framework-Vision pyobjc-framework-Quartz
 ```
 
 `VNRecognizeTextRequest` + `recognitionLanguages=["zh-Hans","en-US"]`，
@@ -582,6 +584,52 @@ items.sort(reverse=True)                     # 体积降序 → [0] 即最高画
 
 在归档目录写 `README.md`，至少包含：数据概况表、附件表（带 `[[附件/...]]` 链接）、图片清单、**数据说明**（缺失日期、缩略图比例、占位符条数）。
 表格内的 wiki 链接别名要写 `\|`（反斜杠转义竖线），否则表格会被截断。
+
+## 按群导出视频（无损，按 md5 精确匹配）
+
+用户说「把某群的视频都下载下来」时走这套流程。产出**明文 MP4**，不涉及解密。
+
+### 1. 取视频清单
+
+```bash
+wechat-cli history "<群名>" --type video --limit 500 --format json > /tmp/videos.json
+```
+
+`messages` 是字符串数组（`[时间] 发送者: [视频] <msg><videomsg .../></msg>`），
+自己用正则抽 `md5` / `rawmd5` / `newmd5` / `length` / `rawlength` / `playlength`。
+
+- `md5` → 压缩版；`rawmd5` → 原画（可达 150–320MB）；两者都命中时优先原画。
+- 部分消息**只有 `newmd5`**（转发/新容器），此值与本地文件 MD5 对不上，只能退化为
+  「字节数 + 时长」双条件且**全库唯一命中**才可认定，并在清单里标注「推定」。
+
+### 2. 定位视频目录并全量 MD5
+
+```bash
+V=~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/<wxid>_<hex4>/msg/video
+find "$V" -name "*.mp4" -print0 | xargs -0 -n1 -P8 md5 -r > /tmp/mp4_md5.txt
+```
+
+- 微信 4.x 的聊天视频就是**标准可播放 MP4**，按 `YYYY-MM/` 分月存放，无需解密。
+- 文件名的 `<hash>` **不是**消息里的 md5；但**文件内容 MD5 == 消息 XML 的 md5**（实测一致）。
+- 所以精确匹配必须对整个 `msg/video` 做 MD5，**不能**靠文件名、大小或时长（只靠大小+时长会错配）。
+- 已导出目录也要做一次 MD5，用来跳过重复导出。
+
+### 3. 导出与校验
+
+命名 `YYYYmmdd_HHMM_<序号>_<发送者>.mp4`，`cp -p` 后 `chmod u+w`（微信文件常只读）。
+机器上通常没有 `ffprobe`；校验时长用 macOS 自带：
+
+```bash
+mdls -raw -name kMDItemDurationSeconds file.mp4   # 刚拷的文件可能返回 (null)
+```
+
+`(null)` 时不要当成坏文件——直接解析 `moov/mvhd`（纯 Python，无需依赖）即可拿到时长，
+与消息 `playlength` 对齐视为通过。
+
+### 4. 必须有清单
+
+输出目录写 `清单.md`：总数 / 已导出 / 未下载三个数字 + 已导出表（序号、时间、时长、画质、文件名）+ 未下载表（时间、时长、大小）+ 补齐说明。
+未下载不是脚本 bug：**微信只有被点开播放过才会把视频落到本地**，`wechat-cli` 能列出元数据但不触发下载。补齐只能人工在客户端逐个点开，然后重跑本流程（幂等，靠 MD5 跳过已有）。
 
 ## Obsidian Vault 检测
 
