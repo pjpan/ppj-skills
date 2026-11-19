@@ -2,7 +2,7 @@
 name: wechat-smart-organizer
 description: 微信聊天记录智能整理技能。当用户想要读取微信聊天记录、提取关键信息、存储到Obsidian笔记、或创建日历事件时使用此技能。功能包括：查询会话、读取聊天记录、搜索关键词、提取任务/时间/待办事项、智能分类存储到Obsidian、创建日历提醒、自动补全链接URL。
 agent_created: true
-version: 1.8.0
+version: 1.8.1
 author: ppj
 tags: [wechat, organizer, obsidian, productivity, v2-decrypt]
 homepage: https://github.com/pjpan/ppj-skills/tree/master/wechat-smart-organizer
@@ -578,7 +578,17 @@ items.sort(reverse=True)                     # 体积降序 → [0] 即最高画
 
 ### 4. 附件
 
-`msg/file/YYYY-MM/` 下按文件名 `find`，复制后必须 `md5` 比对并 `chmod u+w`（微信文件常是只读）。
+**别急着 `find`。** `history` 加 `--media` 会把本地绝对路径直接追加在消息后面：
+
+```bash
+wechat-cli history "<群名>" --type file --limit 200 --media --format json
+# "[2026-11-19 17:43] 张能: [文件] 定义新运算.pdf
+#   /Users/.../msg/file/2026-11/定义新运算.pdf"
+```
+
+拿到路径后逐条 `os.path.exists`——**不存在＝该文件在客户端从未下载**（不是脚本问题）。
+复制后必须 `md5` 比对并 `chmod u+w`（微信文件常是只读）。
+`--media` 对文件/图片/视频/语音有效；链接卡片仍然没有路径。
 
 ### 5. 索引笔记
 
