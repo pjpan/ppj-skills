@@ -6,19 +6,26 @@
 
 ## 包含的 Skills
 
+### 个人维护（仓库一级目录）
+
 | Skill | 解决什么问题 | 典型触发场景 |
 |---|---|---|
 | [`wechat-smart-organizer`](./wechat-smart-organizer/SKILL.md) | 本地微信聊天记录的读取与整理 | “帮我读一下某个群的聊天记录”“把这个群最近一周的讨论总结一下”“从聊天里找出待办/会议/联系人”“解密微信图片并存到 Obsidian” |
 | [`digital-twin-fidelity-auditor`](./digital-twin-fidelity-auditor/SKILL.md) | 数字孪生/人格 agent 的复刻保真度审计 | “这个 twin 复刻了哪些维度、缺了什么”“它学到的是这个人还是一个原型”“结论有多少独立证据支撑” |
 | [`structured-technical-report`](./structured-technical-report/SKILL.md) | 技术报告的结构架构与评审 | 白皮书、架构报告、研究/战略文档的撰写、重构、评审；或“内容都对但读起来不成体系” |
 | [`ppj-report-review`](./ppj-report-review/SKILL.md) | 管理层汇报的逻辑诊断与重构 | 汇报评审、修改汇报逻辑、准备项目汇报、把零散材料整理成决策稿 |
-| [`anatomy`](./anatomy/SKILL.md) | 构建精细、可交互的等距 SVG / WebGL 技术图解 | 解释机器、系统、工程机制，生成可运行的可视化成品 |
-| [`k12-core-literacy-planning`](./k12-core-literacy-planning/SKILL.md) | 面向中国 K-12 核心素养的课程设计 | 课标导向、真实情境、任务群与表现性评价 |
-| [`lecture-style`](./lecture-style/SKILL.md) | 连续、系统的大师课式讲授设计 | 系统讲解、讲透一个主题、用多案例建立完整论证 |
-| [`fact-check`](./fact-check/SKILL.md) | 课程或内容的事实核查 | 校验数字、日期、归因、专业事实与跨页矛盾 |
-| [`feynman-learning`](./feynman-learning/SKILL.md) | 把内容转化为费曼学习循环 | Teach-back、暴露知识缺口、去术语解释与迁移应用 |
-| [`stage-design`](./stage-design/SKILL.md) | 构建单个 OpenMAIC 课堂的基础流程 | 课堂规划、页面生成、角色设置、持久化与验收 |
-| [`pro-editing`](./pro-editing/SKILL.md) | 对已有课程进行专业编辑 | 局部修订现有课堂，保持已确认内容和结构稳定 |
+
+### 上游开源（`open-source/` 目录）
+
+| Skill | 解决什么问题 | 典型触发场景 |
+|---|---|---|
+| [`anatomy`](./open-source/anatomy/SKILL.md) | 构建精细、可交互的等距 SVG / WebGL 技术图解 | 解释机器、系统、工程机制，生成可运行的可视化成品 |
+| [`k12-core-literacy-planning`](./open-source/k12-core-literacy-planning/SKILL.md) | 面向中国 K-12 核心素养的课程设计 | 课标导向、真实情境、任务群与表现性评价 |
+| [`lecture-style`](./open-source/lecture-style/SKILL.md) | 连续、系统的大师课式讲授设计 | 系统讲解、讲透一个主题、用多案例建立完整论证 |
+| [`fact-check`](./open-source/fact-check/SKILL.md) | 课程或内容的事实核查 | 校验数字、日期、归因、专业事实与跨页矛盾 |
+| [`feynman-learning`](./open-source/feynman-learning/SKILL.md) | 把内容转化为费曼学习循环 | Teach-back、暴露知识缺口、去术语解释与迁移应用 |
+| [`stage-design`](./open-source/stage-design/SKILL.md) | 构建单个 OpenMAIC 课堂的基础流程 | 课堂规划、页面生成、角色设置、持久化与验收 |
+| [`pro-editing`](./open-source/pro-editing/SKILL.md) | 对已有课程进行专业编辑 | 局部修订现有课堂，保持已确认内容和结构稳定 |
 
 七个上游同步 Skill 的来源、固定提交版本与许可证见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)。
 其中六个 OpenMAIC Skill 依赖 OpenMAIC 的课堂编辑工具（如 `create_stage`、`read_stage`）；仅复制目录到其他 Agent 运行时，无法执行其完整流程。
@@ -216,29 +223,46 @@ So What（价值是否先于挑战出现）、Why This（起点选择是否有�
 │   └── references/
 │       ├── review-checklist.md
 │       └── writing-principles.md
-└── ppj-report-review/
-    ├── SKILL.md
-    ├── agents/openai.yaml
-    └── references/
-        ├── executive-blueprint.md    # 四阶段蓝图、一页纸模板
-        └── quality-rubric.md         # 六要素评分、技术叙事
+├── ppj-report-review/
+│   ├── SKILL.md
+│   ├── agents/openai.yaml
+│   └── references/
+│       ├── executive-blueprint.md    # 四阶段蓝图、一页纸模板
+│       └── quality-rubric.md         # 六要素评分、技术叙事
+└── open-source/
+    ├── anatomy/
+    ├── fact-check/
+    ├── feynman-learning/
+    ├── k12-core-literacy-planning/
+    ├── lecture-style/
+    ├── pro-editing/
+    └── stage-design/                 # 每个目录内都有独立的 SKILL.md
 ```
 
 ## 安装与使用
 
-把需要的 skill 目录复制或软链到你的 agent 运行时的 skills 目录即可，例如：
+把需要的 skill 目录复制或软链到你的 agent 运行时的 skills 目录。个人 Skill 位于仓库一级目录，上游 Skill 位于 `open-source/`；安装时将各个 Skill 目录直接放到运行时的 skills 目录，而不是只放 `open-source/` 这一层。例如安装全部 11 个：
 
 ```bash
 # 个人级安装（以 ~/.agents/skills 为例）
-git clone git@github.com:pjpan/ppj-skills.git
-cp -R ppj-skills/<skill-name> ~/.agents/skills/
+git clone https://github.com/pjpan/ppj-skills.git
+mkdir -p ~/.agents/skills
+for skill in wechat-smart-organizer digital-twin-fidelity-auditor structured-technical-report ppj-report-review; do
+  cp -R "ppj-skills/$skill" ~/.agents/skills/
+done
+for skill in ppj-skills/open-source/*; do
+  cp -R "$skill" ~/.agents/skills/
+done
 ```
 
-或直接软链，便于 `git pull` 后生效：
+也可选择软链，便于 `git pull` 后生效（与复制方式二选一）：
 
 ```bash
 ln -s "$PWD/ppj-skills/wechat-smart-organizer" ~/.agents/skills/wechat-smart-organizer
+ln -s "$PWD/ppj-skills/open-source/anatomy" ~/.agents/skills/anatomy
 ```
+
+此前软链到仓库一级目录中七个上游 Skill 的用户，更新后需将软链目标改为 `ppj-skills/open-source/<skill-name>`；四个个人 Skill 的路径不变。
 
 安装后由运行时根据 `SKILL.md` 的 frontmatter `description` 决定是否自动加载，也可以按名显式调用（如 `/wechat-smart-organizer`）。
 
