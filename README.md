@@ -21,6 +21,7 @@
 | [`pro-editing`](./pro-editing/SKILL.md) | 对已有课程进行专业编辑 | 局部修订现有课堂，保持已确认内容和结构稳定 |
 
 七个上游同步 Skill 的来源、固定提交版本与许可证见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)。
+其中六个 OpenMAIC Skill 依赖 OpenMAIC 的课堂编辑工具（如 `create_stage`、`read_stage`）；仅复制目录到其他 Agent 运行时，无法执行其完整流程。
 
 ---
 
@@ -245,15 +246,17 @@ ln -s "$PWD/ppj-skills/wechat-smart-organizer" ~/.agents/skills/wechat-smart-org
 
 ### 格式说明
 
+以下格式和设计约定适用于四个个人维护的 Skill；七个上游 Skill 保持原项目的格式与用法。
+
 - `SKILL.md` 的 frontmatter 只依赖 `name` 和 `description` 两个字段，因此不绑定特定厂商的运行时；`agents/openai.yaml` 是 OpenAI/Codex 侧的接口元数据，缺失不影响其他运行时使用。
 - `references/*.md` 由主文件按需引用，用来把详细评分标准、清单、设计指南与主流程分离，避免 `SKILL.md` 过长。
 
 ## 设计约定
 
-这些 skill 共享同一套写作约定：主流程保持精简，只在需要时引导模型读取详细参考文档；概念必须可区分、术语必须一致；论断强度必须匹配证据强度，不把演示效果当作能力证据。
+四个个人维护的 skill 共享同一套写作约定：主流程保持精简，只在需要时引导模型读取详细参考文档；概念必须可区分、术语必须一致；论断强度必须匹配证据强度，不把演示效果当作能力证据。
 
-在目录与 `SKILL.md` 层面，所有 skill 都符合 Agent Skills 规范：frontmatter 仅使用 `name` 与 `description`（`name` 为必填、全小写连字符格式且与目录名一致），`references/` 中的每个文件都由 `SKILL.md` 显式引用并说明读取时机，主文件保持在 500 行以内。
+这四个 skill 的 frontmatter 仅使用 `name` 与 `description`（`name` 为必填、全小写连字符格式且与目录名一致）；详细材料放在 `references/` 中，由主文件按需引用。
 
 ## License
 
-仓库暂未附带 LICENSE 文件。如需对外复用，请先补充许可证。
+四个个人维护的 Skill 暂未附带许可证；七个上游 Skill 的许可证见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)。
